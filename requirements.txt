@@ -1,0 +1,6 @@
+streamlit
+pdfplumber
+python-pptx
+python-docx
+openpyxl
+markitdown
