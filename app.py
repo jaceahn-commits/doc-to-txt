@@ -29,6 +29,7 @@ def clean_text(text):
     return '\n'.join(lines).strip()
 
 def convert_pdf(file):
+    import tempfile, os
     pages = []
     with pdfplumber.open(file) as pdf:
         for i, page in enumerate(pdf.pages, 1):
@@ -44,6 +45,21 @@ def convert_pdf(file):
                 combined += "\n[표]\n" + table_text
             if combined.strip():
                 pages.append(f"[페이지 {i}]\n{combined.strip()}")
+
+    # 텍스트가 없으면 스캔 PDF → OCR 적용
+    if not pages:
+        try:
+            from pdf2image import convert_from_bytes
+            import pytesseract
+            file.seek(0)
+            images = convert_from_bytes(file.read(), dpi=200)
+            for i, image in enumerate(images, 1):
+                text = pytesseract.image_to_string(image, lang='kor+eng')
+                if text.strip():
+                    pages.append(f"[페이지 {i}]\n{text.strip()}")
+        except Exception as e:
+            pass
+
     return "\n\n".join(pages)
 
 def convert_pptx(file):
