@@ -6,3 +6,4 @@ openpyxl
 markitdown
 pytesseract
 Pillow
+pdf2image
