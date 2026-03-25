@@ -1,7 +1,6 @@
 import streamlit as st
 import pdfplumber
 import csv
-import json
 import re
 import io
 import zipfile
@@ -120,7 +119,6 @@ def convert_image(file):
     import pytesseract
     from PIL import Image
     image = Image.open(file)
-    # 한국어 + 영어 동시 인식
     text = pytesseract.image_to_string(image, lang='kor+eng')
     return text
 
@@ -141,7 +139,6 @@ def convert_file(uploaded_file):
     else:
         return None
 
-# 파일 업로드
 uploaded_files = st.file_uploader(
     "파일을 여기에 드래그하거나 클릭해서 선택하세요",
     type=['pdf', 'pptx', 'ppt', 'docx', 'doc', 'xlsx', 'xls', 'csv',
@@ -209,113 +206,3 @@ if uploaded_files:
 
 st.divider()
 st.caption("지원 형식: PDF · PPTX · DOCX · XLSX · CSV · JPG · PNG · 외  |  무료 · 광고 없음 · 업로드한 파일은 저장되지 않습니다")
-
-
-def clean_text(text):
-    text = re.sub(r'\n{3,}', '\n\n', text)
-    lines = [line.rstrip() for line in text.splitlines()]
-    return '\n'.join(lines).strip()
-
-def convert_pdf(file):
-    pages = []
-    with pdfplumber.open(file) as pdf:
-        for i, page in enumerate(pdf.pages, 1):
-            text = page.extract_text() or ""
-            tables = page.extract_tables()
-            table_text = ""
-            for table in tables:
-                for row in table:
-                    row_clean = [str(cell or "").strip() for cell in row]
-                    table_text += " | ".join(row_clean) + "\n"
-            combined = text
-            if table_text:
-                combined += "\n[표]\n" + table_text
-            if combined.strip():
-                pages.append(f"[페이지 {i}]\n{combined.strip()}")
-    return "\n\n".join(pages)
-
-def convert_pptx(file):
-    from pptx import Presentation
-    prs = Presentation(file)
-    slides = []
-    for i, slide in enumerate(prs.slides, 1):
-        parts = []
-        for shape in slide.shapes:
-            if shape.has_text_frame:
-                for para in shape.text_frame.paragraphs:
-                    line = para.text.strip()
-                    if line:
-                        parts.append(line)
-            if shape.has_table:
-                for row in shape.table.rows:
-                    cells = [cell.text.strip() for cell in row.cells]
-                    parts.append(" | ".join(cells))
-        if parts:
-            slides.append(f"[슬라이드 {i}]\n" + "\n".join(parts))
-    return "\n\n".join(slides)
-
-def convert_docx(file):
-    from docx import Document
-    doc = Document(file)
-    parts = []
-    for para in doc.paragraphs:
-        text = para.text.strip()
-        if text:
-            if para.style.name.startswith('Heading'):
-                parts.append(f"\n## {text}")
-            else:
-                parts.append(text)
-    for table in doc.tables:
-        parts.append("\n[표]")
-        for row in table.rows:
-            cells = [cell.text.strip() for cell in row.cells]
-            parts.append(" | ".join(cells))
-    return "\n".join(parts)
-
-def convert_xlsx(file):
-    import openpyxl
-    wb = openpyxl.load_workbook(file, data_only=True)
-    sheets = []
-    for sheet_name in wb.sheetnames:
-        ws = wb[sheet_name]
-        rows = []
-        for row in ws.iter_rows(values_only=True):
-            cells = [str(c).strip() if c is not None else "" for c in row]
-            if any(cells):
-                rows.append(" | ".join(cells))
-        if rows:
-            sheets.append(f"[시트: {sheet_name}]\n" + "\n".join(rows))
-    return "\n\n".join(sheets)
-
-def convert_csv(file):
-    for encoding in ['utf-8', 'utf-8-sig', 'cp949', 'euc-kr']:
-        try:
-            content = file.read().decode(encoding)
-            file.seek(0)
-            reader = csv.reader(content.splitlines())
-            rows = []
-            for row in reader:
-                if any(cell.strip() for cell in row):
-                    rows.append(" | ".join(cell.strip() for cell in row))
-            return "\n".join(rows)
-        except Exception:
-            file.seek(0)
-            continue
-    return ""
-
-def convert_file(uploaded_file):
-    ext = Path(uploaded_file.name).suffix.lower()
-    if ext == '.pdf':
-        return convert_pdf(uploaded_file)
-    elif ext in ('.pptx', '.ppt'):
-        return convert_pptx(uploaded_file)
-    elif ext in ('.docx', '.doc'):
-        return convert_docx(uploaded_file)
-    elif ext in ('.xlsx', '.xls'):
-        return convert_xlsx(uploaded_file)
-    elif ext == '.csv':
-        return convert_csv(uploaded_file)
-    else:
-        return None
-
-
